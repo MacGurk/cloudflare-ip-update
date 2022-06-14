@@ -1,6 +1,8 @@
 # Cloudflare IP update
 Script to dynamically update DNS-Record on cloudflare if IP of server has changed.
 
+Credit to [nfahrni](https://github.com/nfahrni) for the initial version.
+
 ## Config file
 File named config.json must be present in same directory as ip_update.py.
 The file must contain following data
@@ -26,3 +28,4 @@ Example crontab to run all 5 minutes, replace the path:
 */5 * * * * python3 /path/to/ip_update.py
 ```
 See [crontab man page](https://man7.org/linux/man-pages/man5/crontab.5.html) for reference.
+
