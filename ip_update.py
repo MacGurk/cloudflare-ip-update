@@ -38,11 +38,13 @@ if config.get("zones"):
     zones = config.get("zones")
 else:
     logger.error("'zones' must be defined in config.json")
+    sys.exit(1)
 
 if config.get("cloudflare_api_token"):
     cloudflare_dns_api_token = config.get("cloudflare_api_token")
 else:
     logger.error("'cloudflare_api_token' must be defined in config.json")
+    sys.exit(1)
 
 logger.info('\nStarting new IP update on cloudflare DNS\n=============')
 headers = {'Authorization': f'Bearer {cloudflare_dns_api_token}'}
@@ -62,8 +64,11 @@ for zone in zones:
     try:
         dns_records_json = requests.get(
             f"https://api.cloudflare.com/client/v4/zones/{zone['zone_id']}/dns_records?type=A", headers=headers).json()
-    except Exception:
+    except requests.exceptions.HTTPError as e:
         logger.error('Could not establish a connection to cloudflare')
+        logger.error(e)
+        sys.exit(1)
+
     logger.info('' + str(len(dns_records_json["result"])) + ' A records found')
     for dns_record in dns_records_json["result"]:
         logger.info('Checking record ' + dns_record["name"])
@@ -72,8 +77,10 @@ for zone in zones:
                 requests.patch(f"https://api.cloudflare.com/client/v4/zones/{zone['zone_id']}/dns_records/{dns_record['id']}", headers=headers, json={
                 "type": "A", "name": dns_record["name"], "content": current_ip, "ttl": 120})
                 logger.info('Updated record ' + dns_record["name"] + ' with IP ' + current_ip)
-            except Exception:
+            except requests.exceptions.HTTPError as e:
                 logger.error('Could not establish a connection to cloudflare')
+                logger.error(e)
+                sys.exit(1)
 
         else:
             logger.info('No update needed for record ' + dns_record["name"] + ' , current IP ' + current_ip + ' and DNS record IP ' + dns_record["content"] + ' are the same')
