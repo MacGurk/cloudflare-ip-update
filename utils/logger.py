@@ -4,7 +4,7 @@ import os
 
 
 def init(script_dir):
-    log_file_name = "ip_update.log"
+    log_file_name = "../ip_update.log"
     log_file_path = os.path.join(script_dir, log_file_name)
 
     logging_formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')

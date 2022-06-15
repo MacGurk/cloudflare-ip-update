@@ -1,11 +1,10 @@
 import sys
 import os
 import ipaddress
-import logger
+from utils import logger, cloudflare
 import logging
 import json
 import requests
-import cloudflare
 
 
 def get_current_ip():
