@@ -1,4 +1,5 @@
 config.json
+*.log.[0-9]
 
 # Editors
 .vscode/
