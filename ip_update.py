@@ -1,86 +1,79 @@
 import sys
 import os
 import ipaddress
+import logger
 import logging
-from logging.handlers import RotatingFileHandler
 import json
 import requests
-
-script_dir = os.path.dirname(__file__)
-
-log_file_name = "ip_update.log"
-log_file_path = os.path.join(script_dir, log_file_name)
-
-logging_formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
-logging_handler = RotatingFileHandler(log_file_path, mode="a", maxBytes=5*1024*1024, backupCount=10, encoding=None, delay=False)
-logging_handler.setFormatter(logging_formatter)
-logging_handler.setLevel(logging.INFO)
-
-logger = logging.getLogger("root")
-logger.setLevel(logging.INFO)
-logger.addHandler(logging_handler)
-
-logger.info('\n=============\nRun IP update\n=============')
-
-logger.info('load config from config.json')
-
-config_file_name = "config.json"
-config_file_path = os.path.join(script_dir, config_file_name)
-
-try:
-    with open(config_file_path) as jsonfile:
-        config = json.load(jsonfile)
-except IOError:
-    logger.error("config.json not found")
-    sys.exit(1)
-
-if config.get("zones"):
-    zones = config.get("zones")
-else:
-    logger.error("'zones' must be defined in config.json")
-    sys.exit(1)
-
-if config.get("cloudflare_api_token"):
-    cloudflare_dns_api_token = config.get("cloudflare_api_token")
-else:
-    logger.error("'cloudflare_api_token' must be defined in config.json")
-    sys.exit(1)
-
-logger.info('\nStarting new IP update on cloudflare DNS\n=============')
-headers = {'Authorization': f'Bearer {cloudflare_dns_api_token}'}
+import cloudflare
 
 
 def get_current_ip():
-    logger.info('Getting current IP')
-    ip_request = requests.get('https://api.ipify.org')
+    app_log = logging.getLogger("root")
+    try:
+        ip_request = requests.get('https://api.ipify.org')
+    except requests.exceptions.HTTPError as e:
+        app_log.error('Could not establish a connection to cloudflare')
+        app_log.error(e)
+        sys.exit(1)
     return ip_request.text
 
 
-current_ip = get_current_ip()
-logger.info('Current IP is: ' + current_ip)
+def read_config(script_dir):
+    app_log = logging.getLogger("root")
+    config_file_name = "config.json"
+    config_file_path = os.path.join(script_dir, config_file_name)
 
-for zone in zones:
-    logger.info('Getting A records of zone ' + zone["name"])
     try:
-        dns_records_json = requests.get(
-            f"https://api.cloudflare.com/client/v4/zones/{zone['zone_id']}/dns_records?type=A", headers=headers).json()
-    except requests.exceptions.HTTPError as e:
-        logger.error('Could not establish a connection to cloudflare')
-        logger.error(e)
+        with open(config_file_path) as jsonfile:
+            config = json.load(jsonfile)
+    except IOError:
+        app_log.error("config.json not found")
         sys.exit(1)
 
-    logger.info('' + str(len(dns_records_json["result"])) + ' A records found')
-    for dns_record in dns_records_json["result"]:
-        logger.info('Checking record ' + dns_record["name"])
-        if dns_record["content"] != current_ip and not ipaddress.ip_address(dns_record["content"]).is_private:
-            try:
-                requests.patch(f"https://api.cloudflare.com/client/v4/zones/{zone['zone_id']}/dns_records/{dns_record['id']}", headers=headers, json={
-                "type": "A", "name": dns_record["name"], "content": current_ip, "ttl": 120})
-                logger.info('Updated record ' + dns_record["name"] + ' with IP ' + current_ip)
-            except requests.exceptions.HTTPError as e:
-                logger.error('Could not establish a connection to cloudflare')
-                logger.error(e)
-                sys.exit(1)
+    if not config.get("zones"):
+        app_log.error("'zones' must be defined in config.json")
+        sys.exit(1)
 
-        else:
-            logger.info('No update needed for record ' + dns_record["name"] + ' , current IP ' + current_ip + ' and DNS record IP ' + dns_record["content"] + ' are the same')
+    if not config.get("cloudflare_api_token"):
+        app_log.error("'cloudflare_api_token' must be defined in config.json")
+        sys.exit(1)
+
+    return config
+
+
+def main():
+    script_dir = os.path.dirname(__file__)
+
+    logger.init(script_dir)
+    app_log = logging.getLogger("root")
+
+    app_log.info('\n=============\nRun IP update\n=============')
+    app_log.info('load config from config.json')
+
+    config = read_config(script_dir)
+    zones = config.get("zones")
+
+    app_log.info('\nStarting new IP update on cloudflare DNS\n=============')
+    cloudflare.init(config.get("cloudflare_api_token"))
+
+    app_log.info('Getting current IP')
+    current_ip = get_current_ip()
+    app_log.info(f'Current IP is: {current_ip}')
+
+    for zone in zones:
+        app_log.info(f'Getting A records of zone {zone["name"]}')
+        dns_records_json = cloudflare.get_dns_records(zone)
+        app_log.info(f'{str(len(dns_records_json["result"]))} A records found')
+
+        for dns_record in dns_records_json["result"]:
+            app_log.info(f'Checking record {dns_record["name"]}')
+            if dns_record["content"] != current_ip and not ipaddress.ip_address(dns_record["content"]).is_private:
+                cloudflare.update_dns_record(zone, dns_record, current_ip)
+            else:
+                app_log.info(f'No update needed for record {dns_record["name"]}, current IP {current_ip} and DNS '
+                             f'record IP {dns_record["content"]} are the same')
+
+
+if __name__ == "__main__":
+    main()
