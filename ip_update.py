@@ -1,17 +1,26 @@
 import sys
+import os
 import ipaddress
 import logging
 import json
 import requests
 
+script_dir = os.path.dirname(__file__)
 
-logging.basicConfig(filename='ip_update.log', format='%(asctime)s %(message)s', level=logging.DEBUG)
+log_file_name = "ip_update.log"
+log_file_path = os.path.join(script_dir, log_file_name)
 
-logging.info('=============\nRun IP update\n=============\n')
+logging.basicConfig(filename=log_file_path, format='%(asctime)s %(message)s', level=logging.DEBUG)
+
+logging.info('\n=============\nRun IP update\n=============')
 
 logging.info('load config from config.json')
+
+config_file_name = "config.json"
+config_file_path = os.path.join(script_dir, config_file_name)
+
 try:
-    with open("config.json") as jsonfile:
+    with open(config_file_path) as jsonfile:
         config = json.load(jsonfile)
 except IOError:
     logging.error("config.json not found")
@@ -27,7 +36,7 @@ if config.get("cloudflare_api_token"):
 else:
     logging.error("'cloudflare_api_token' must be defined in config.json")
 
-logging.info('Starting new IP update on cloudflare DNS\n=============\n')
+logging.info('\nStarting new IP update on cloudflare DNS\n=============')
 headers = {'Authorization': f'Bearer {cloudflare_dns_api_token}'}
 
 
