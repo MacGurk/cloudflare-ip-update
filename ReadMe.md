@@ -31,5 +31,5 @@ Example crontab to run all 5 minutes, replace the path:
 ```
 */5 * * * * python3 /path/to/ip_update.py
 ```
-See [crontab man page](https://man7.org/linux/man-pages/man5/crontab.5.html) for reference.
+See [crontab man page](https://man7.org/linux/man-pages/man5/crontab.5.html) or [crontab guru](https://crontab.guru/) for reference.
 
