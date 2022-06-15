@@ -17,11 +17,15 @@ The file must contain following data
   "cloudflare_api_token": "Cl0uDfl4r3_aP1_t0k3n"
 }
 ```
+## Log file
 
-Everything gets logged to ip_update.log in the same directory of the script.
+Errors and infos get logged to ip_update.log in the same directory of the script.
+If the logfile exceeds 5MB, a new file will be created, up to 10 logfiles will be retained.
 
 ## Run scheduled
 Script can run automatically via cron.
+
+Edit crontab with ```crontab -e```.
 
 Example crontab to run all 5 minutes, replace the path:
 ```
